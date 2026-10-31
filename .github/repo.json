@@ -1,0 +1,10 @@
+{
+  "description": "Opens a SQLite database of the project read-only: its tables with their counts, a table's structure and rows with sort and paging. Values stay on screen unless you hand the table and a question to an agent.",
+  "topics": [
+    "hangar-kit",
+    "hangar",
+    "claude-code",
+    "database",
+    "sqlite"
+  ]
+}
