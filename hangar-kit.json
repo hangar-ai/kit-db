@@ -2,7 +2,7 @@
   "schema": 1,
   "id": "db",
   "name": "Database",
-  "version": "0.1.0",
+  "version": "0.1.1",
   "description": "Opens a SQLite database of the project read-only: its tables with their counts, a table's structure and rows with sort and paging. Values stay on screen unless you hand the table and a question to an agent.",
   "author": "Hangar",
   "homepage": "https://github.com/hangar-ai/kit-db",

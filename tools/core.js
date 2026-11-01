@@ -29,6 +29,18 @@ const fail = (error, detail) => ({ ok: false, error, ...(detail ? { detail: Stri
 const whole = (value, max) => (/^[0-9]{1,9}$/.test(String(value)) && Number(value) <= max ? Number(value) : null);
 const insidePath = (relative) => PATH_PATTERN.test(relative) && !relative.split("/").includes("..");
 
+/**
+ * A REAL as the shortest text that reads back as the same number. SQL brings it with 17 significant
+ * digits: a CAST rounds to 15 on some versions of SQLite and not on others, so a table would show
+ * another value than the one stored, and the two drivers would disagree. Inf stays as SQLite writes it.
+ */
+function realText(digits) {
+  const number = Number(digits);
+  if (!Number.isFinite(number)) return digits;
+  const shortest = String(number);
+  return /^-?[0-9]+$/.test(shortest) ? `${shortest}.0` : shortest;
+}
+
 function hasHeader(file) {
   let fd;
   try {
@@ -203,7 +215,7 @@ function rows(relative, table, sort, direction, offset, limit, chars, cwd, env) 
         return [
           `typeof(${c}) AS "t${index}"`,
           `length(${c}) AS "l${index}"`,
-          `CASE typeof(${c}) WHEN 'blob' THEN NULL WHEN 'text' THEN substr(${c}, 1, ${chars}) WHEN 'null' THEN NULL ELSE CAST(${c} AS TEXT) END AS "v${index}"`,
+          `CASE typeof(${c}) WHEN 'blob' THEN NULL WHEN 'text' THEN substr(${c}, 1, ${chars}) WHEN 'null' THEN NULL WHEN 'real' THEN printf('%!.17g', ${c}) ELSE CAST(${c} AS TEXT) END AS "v${index}"`,
         ].join(", ");
       })
       .join(", ");
@@ -219,6 +231,7 @@ function rows(relative, table, sort, direction, offset, limit, chars, cwd, env) 
         if (type === "null") return { type };
         if (type === "blob") return { type, length };
         const value = row[`v${index}`] === null || row[`v${index}`] === undefined ? "" : String(row[`v${index}`]);
+        if (type === "real") return { type, value: realText(value) };
         return type === "text" ? { type, value, length, cut: length > value.length } : { type, value };
       }),
     );
@@ -236,4 +249,4 @@ function run(argv, { cwd = process.cwd(), env = process.env } = {}) {
   return fail("bad-args", "usage: list | tables PATH | schema PATH TABLE | rows PATH TABLE SORT DIRECTION OFFSET LIMIT CHARS");
 }
 
-module.exports = { run, PATH_PATTERN, TABLE_PATTERN, EXTENSIONS, MAX_LIMIT, MAX_CHARS };
+module.exports = { run, realText, PATH_PATTERN, TABLE_PATTERN, EXTENSIONS, MAX_LIMIT, MAX_CHARS };

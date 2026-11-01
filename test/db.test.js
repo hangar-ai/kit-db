@@ -82,9 +82,26 @@ test("rows: a page, with every type told apart, and the text cut in the database
   assert.deepEqual(ada[7], { type: "real", value: "3.5" });
   assert.deepEqual(bob[5], { type: "null" });
   assert.deepEqual(bob[7], { type: "real", value: "-1.25" });
+  assert.deepEqual(eloise[7], { type: "real", value: "9007199254740992.0" }, "the number stored, not one rounded to 15 digits");
   assert.equal(eloise[1].value, "Éloïse ‘quoted’");
   assert.equal(eloise[5].value, 'it\'s a "test"');
   assert.ok(!JSON.stringify(answer).includes("lorem ipsum lorem ipsum lorem"), "the long value did not leave whole");
+});
+
+test("a real reads back as the number stored, whatever SQLite's version writes", () => {
+  const { realText } = require("../tools/core");
+  for (const [digits, shown] of [
+    ["0.10000000000000001", "0.1"],
+    ["3.5", "3.5"],
+    ["-1.25", "-1.25"],
+    ["9007199254740992.0", "9007199254740992.0"],
+    ["2.0", "2.0"],
+    ["1.0e+25", "1e+25"],
+    ["Inf", "Inf"],
+    ["-Inf", "-Inf"],
+  ]) {
+    assert.equal(realText(digits), shown, digits);
+  }
 });
 
 test("rows: the whole of one cell is a page of one row with a large cut", { skip }, (t) => {
