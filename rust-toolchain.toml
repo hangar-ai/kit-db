@@ -1,0 +1,7 @@
+# The compiler that builds tabs/db.wasm. The module is committed, and CI builds it again to check it
+# was not left behind: the same compiler gives the same bytes, so the version is pinned. To move on,
+# change it, run scripts/build-native.sh and commit both. `rustup toolchain install` reads this file.
+[toolchain]
+channel = "1.99.1"
+profile = "minimal"
+targets = ["wasm32-unknown-unknown"]

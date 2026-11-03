@@ -1,0 +1,27 @@
+[package]
+name = "kit-db-tab"
+version = "0.1.1"
+description = "The Database kit's tab, native: Rust built to WebAssembly"
+edition = "2024"
+publish = false
+
+# The cdylib is the module Hangar runs (tabs/db.wasm); the rlib is what
+# `cargo test` links, to run the tab on the host with the SDK's harness.
+[lib]
+crate-type = ["cdylib", "rlib"]
+
+[dependencies]
+# Until a release tag holds the SDK, its branch.
+hangar-kit-sdk = { git = "https://github.com/hangar-ai/hangar", branch = "feat/native-rust" }
+serde = { version = "1", features = ["derive"] }
+serde_json = "1"
+
+[dev-dependencies]
+# The tests hold every command's arguments to the manifest's patterns, as
+# Hangar does; the module itself has no use for it.
+regex = "1"
+
+[profile.release]
+opt-level = "s"
+lto = true
+strip = true
