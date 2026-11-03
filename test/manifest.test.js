@@ -11,7 +11,7 @@ const read = (...parts) => fs.readFileSync(path.join(KIT, ...parts), "utf8");
 
 function allFiles(dir = KIT, found = []) {
   for (const entry of fs.readdirSync(dir, { withFileTypes: true })) {
-    if ([".git", ".hangar-ui", "node_modules"].includes(entry.name)) continue;
+    if ([".git", ".hangar-ui", "node_modules", "target"].includes(entry.name)) continue;
     if (entry.isDirectory()) allFiles(path.join(dir, entry.name), found);
     else found.push(path.join(dir, entry.name));
   }
@@ -81,6 +81,25 @@ test("the tab: « Base de données », and exactly the permissions it needs", ()
   assert.equal(tab.singleton, true);
   assert.deepEqual(Object.keys(tab.params), ["path"]);
   assert.ok(tab.params.path.description.trim());
+});
+
+test("the native tab: a module beside the page, which stays what Hangar 1.x opens", () => {
+  const [tab] = manifest.tabs;
+  // Schema 1 and the HTML entry stay: an older Hangar ignores `native` and opens the page, the native
+  // Hangar opens the module (docs/native/kits-native.md, "Both, for a kit that must still open on 1.x").
+  assert.equal(manifest.schema, 1);
+  assert.equal(tab.entry, "tabs/db/index.html");
+  assert.equal(tab.native, "tabs/db.wasm");
+  assert.match(tab.native, /^[a-z0-9-]+(\/[a-z0-9.-]+)*\.wasm$/, "relative, not hidden, no way out");
+  const file = path.join(KIT, tab.native);
+  assert.ok(fs.existsSync(file), "the module is committed: scripts/build-native.sh");
+  assert.ok(fs.realpathSync(file).startsWith(fs.realpathSync(KIT) + path.sep), "inside the kit");
+  assert.ok(fs.statSync(file).size <= 64 * 1024 * 1024);
+  assert.deepEqual([...fs.readFileSync(file).subarray(0, 8)], [0, 0x61, 0x73, 0x6d, 1, 0, 0, 0], "a WebAssembly module");
+  const script = read("scripts", "build-native.sh");
+  assert.match(script, /wasm32-unknown-unknown/);
+  assert.match(script, /tabs\/db\.wasm/);
+  assert.match(read(".gitignore"), /^native\/target\/$/m);
 });
 
 test("the page loads Hangar UI and its own files, and nothing from elsewhere", () => {
