@@ -65,9 +65,65 @@ them verbatim when you enable the kit; only the parts in braces change, and each
 - A database in WAL mode that a program is writing may answer « locked »; try again later.
 - Encrypted databases (SQLCipher) are not SQLite files to the reader and are reported as such.
 
+## The native tab
+
+The tab exists twice. **Hangar 1.x** opens the page, `tabs/db/`, HTML, as it always did. **The native
+Hangar** opens `tabs/db.wasm`: the same tab written in Rust (`native/`), compiled to WebAssembly and drawn
+by Hangar itself with its own widgets, in your theme, with no browser engine. The manifest stays at
+`"schema": 1`, keeps the HTML `entry` and adds `"native": "tabs/db.wasm"`: an older Hangar ignores the
+field and opens the page, and the native Hangar opens the page only when the module cannot be loaded
+(the tab's bar says so).
+
+It does what the page does, with the same four commands, the same permissions and the same calls to
+Hangar (`command.run`, `data.read`, `data.write`, `panes.list`, `panes.send`, `tab.setTitle`;
+`files.read` stays declared and goes unused, as in the page). Values stay on screen: no cell is ever
+logged, toasted or sent, and a test checks it over everything the tab calls.
+
+Where it differs:
+
+- **A singleton asked again for another database opens it.** `kit_tab_open { kit: "db", tab: "db",
+  params: { path } }` on a tab already open sends it a `tab.params` event whose data is `{ params,
+  caller }`; the page read `event.data.params.path`, which is never there, so it never heard the new
+  path (it still does not: the page is left as it was). A missing Node.js reads as its own message
+  too, where the page showed a generic failure.
+- **A long value is read in a panel under the table.** Press a row: each of its cut texts offers
+  « Show all N characters », which fills a text area that can be selected and copied. A cell itself is
+  one line, cut at its column, with the start of the value in its tooltip.
+- **Only the first 40 columns of a wide table are drawn**, with a note, where the page drew 200: a view
+  is a message of at most 4 MB.
+- **A cell cannot be selected with the pointer**, nor can the table's header stay in sight while its
+  rows scroll: Hangar's widgets have no text selection yet, and the header is part of what scrolls.
+  The table is at most 360 points tall, not 60 % of the window, and scrolls sideways when it is wide.
+- No accessibility roles (`aria-sort` and the like): Hangar's widgets have none yet, so icons and
+  glyphs are named by tooltips.
+
+### Building it
+
+```sh
+scripts/build-native.sh           # builds native/ to WebAssembly, writes tabs/db.wasm
+scripts/build-native.sh --check   # builds it, and fails if tabs/db.wasm is not what the source builds
+cargo test --manifest-path native/Cargo.toml
+```
+
+Hangar runs the `.wasm` a kit ships and never builds one, so the module is committed, in the same commit
+as the source that changes it. Needs [rustup](https://rustup.rs): `rust-toolchain.toml` pins the compiler
+and the `wasm32-unknown-unknown` target, because the same source gives the same bytes only from the same
+compiler (the build also maps the paths of your machine away, so it is the same from any folder).
+`native/target/` is ignored.
+
+- `native/src/logic.rs` is `logic.js`: the script's documents checked, the patterns, the brief an agent
+  gets. `native/src/strings.rs` holds the English and French words, `native/src/lib.rs` is
+  `controller.js` (the state, its messages) and `native/src/view.rs` is `view.js`.
+- `native/tests/` are the page's tests, ported: the SDK's harness drives the tab, and a pretend Hangar
+  answers it as Hangar does (every call held to this manifest's permissions and patterns) with what the
+  real script printed, recorded in `native/tests/fixtures/answers.json` by
+  `node native/tests/record.js`. `test/native-fixtures.test.js` keeps that file equal to what the script
+  prints now.
+
 ## Tests and fixtures
 
-`node --test kits/db/`. The fixture database is built in a temp folder by each test, with
+`node --test kits/db/` for the script, the page and the manifest, and `cargo test --manifest-path
+native/Cargo.toml` for the native tab (above). The fixture database is built in a temp folder by each test, with
 `node:sqlite` or else the `sqlite3` program; the tests that need the `sqlite3` program are skipped where
 it is not installed. The command runner of the tests applies the manifest's patterns the way Hangar does
 and starts the real script.
@@ -75,12 +131,15 @@ and starts the real script.
 ## Get it
 
 Link `kits/db` from Hangar, or clone <https://github.com/hangar-ai/kit-db>. Needs
-Hangar 1.9.0 or later and Node.js on the PATH.
+Hangar 1.9.0 or later and Node.js on the PATH. The native tab is for the Hangar that has native tabs; every
+other Hangar opens the page.
 
 ## This repository
 
-`node --test` runs the tests, with Node alone. These tests need nothing from Hangar's repository.
+`node --test` runs the tests, with Node alone. These tests need nothing from Hangar's repository. The
+native tab's tests (`cargo test`) need Rust, and the SDK, which they fetch from Hangar's repository.
 
-CI calls [kit-check](https://github.com/hangar-ai/.github/blob/main/.github/workflows/kit-check.yml). A release is
+CI calls [kit-check](https://github.com/hangar-ai/.github/blob/main/.github/workflows/kit-check.yml), and
+builds and tests the native tab, failing if the committed `tabs/db.wasm` is not what the source builds. A release is
 a tag, `v` and the manifest's version, and it reaches Hangar's gallery once
 [the catalog](https://github.com/hangar-ai/catalog) is updated and reviewed.
