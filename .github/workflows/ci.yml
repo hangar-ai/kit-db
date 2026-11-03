@@ -12,3 +12,22 @@ permissions:
 jobs:
   kit-check:
     uses: hangar-ai/.github/.github/workflows/kit-check.yml@v1
+
+  # The Rust tab. Hangar runs the .wasm the kit commits and never builds one, so a module that is not
+  # what the source builds is a tab that is not what was written: this job fails on it.
+  native:
+    name: native tab
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      # The compiler rust-toolchain.toml pins, with the wasm32 target: the one that built the committed
+      # module, so that the two can be compared byte for byte.
+      - name: Install the pinned Rust
+        run: rustup toolchain install
+      - name: Test the tab
+        run: cargo test --manifest-path native/Cargo.toml --locked
+      - name: Check the committed module is what the source builds
+        run: scripts/build-native.sh --check
