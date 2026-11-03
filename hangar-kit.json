@@ -55,6 +55,7 @@
       "id": "db",
       "title": "Database",
       "entry": "tabs/db/index.html",
+      "native": "tabs/db.wasm",
       "icon": "icon.svg",
       "singleton": true,
       "params": {
