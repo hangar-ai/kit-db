@@ -1,7 +1,7 @@
 "use strict";
 // Shared by the tests: a fixture database built in a temp folder, a runner that answers
 // `command.run` the way Hangar does (the manifest's argv, its patterns, no shell) over the real
-// script, a fake window.hangar, and a fake DOM.
+// script.
 const fs = require("node:fs");
 const os = require("node:os");
 const path = require("node:path");
@@ -100,91 +100,4 @@ function db(cwd, name, args, env) {
   return JSON.parse(runDeclared(name, args, cwd, env).stdout);
 }
 
-const fail = (code, message = code) => Object.assign(new Error(message), { code });
-
-const settle = async () => {
-  for (let i = 0; i < 30; i++) await new Promise((resolve) => setImmediate(resolve));
-};
-
-/**
- * A window.hangar answering like Hangar for the permissions the tab holds. `files` is the kit's
- * data folder in memory; commands run the real script in `cwd` unless `commands` overrides one.
- */
-function fakeHangar({ cwd, files = {}, panes = [], params = {}, deny = [], sendError = null, env = {}, commands = {} } = {}) {
-  const calls = [];
-  const listeners = {};
-  const api = {
-    calls,
-    files,
-    panes,
-    callsTo: (method) => calls.filter((call) => call.method === method),
-    on(event, handler) {
-      (listeners[event] = listeners[event] || []).push(handler);
-      return () => {
-        listeners[event] = listeners[event].filter((item) => item !== handler);
-      };
-    },
-    emit: (event, data) => (listeners[event] || []).forEach((handler) => handler({ data })),
-    async call(method, args) {
-      calls.push({ method, args });
-      if (deny.includes(method) || (method === "command.run" && deny.includes(`command:${args.name}`))) throw fail("denied", `this tab was not granted what ${method} needs`);
-      if (method === "tab.setTitle" || method === "tab.setBadge") return {};
-      if (method === "tab.params") return { params, caller: null };
-      if (method === "data.read") {
-        if (files[args.path] === undefined) throw fail("not_found");
-        return { text: files[args.path] };
-      }
-      if (method === "data.write") {
-        files[args.path] = args.text;
-        return {};
-      }
-      if (method === "panes.list") return api.panes;
-      if (method === "panes.send") {
-        if (sendError) throw fail(sendError, `could not: ${sendError}`);
-        return { queued: true, pane: args.pane };
-      }
-      if (method === "command.run") {
-        if (commands[args.name]) return commands[args.name](args.args);
-        return runDeclared(args.name, args.args, cwd, env);
-      }
-      throw fail("denied", `this tab was not granted what ${method} needs`);
-    },
-  };
-  return api;
-}
-
-/** Just enough DOM for view.js: elements, text, children, properties. */
-class FakeNode {
-  constructor(tag) {
-    this.tag = tag;
-    this.className = "";
-    this.children = [];
-    this.attributes = {};
-  }
-  set textContent(value) {
-    this.children = [String(value)];
-  }
-  get textContent() {
-    return this.text;
-  }
-  append(...nodes) {
-    this.children.push(...nodes);
-  }
-  replaceChildren(...nodes) {
-    this.children = nodes;
-  }
-  setAttribute(name, value) {
-    this.attributes[name] = value;
-  }
-  get text() {
-    return this.children.map((child) => (typeof child === "string" ? child : child.text)).join("");
-  }
-  find(predicate, found = []) {
-    if (predicate(this)) found.push(this);
-    for (const child of this.children) if (typeof child !== "string") child.find(predicate, found);
-    return found;
-  }
-}
-const fakeDocument = { createElement: (tag) => new FakeNode(tag) };
-
-module.exports = { KIT, manifest, SECRETS, tempWorkspace, buildFixture, workspaceWithDatabase, canBuildFixture, hasSqliteProgram, runDeclared, db, fakeHangar, fakeDocument, FakeNode, settle, fail };
+module.exports = { KIT, manifest, SECRETS, tempWorkspace, buildFixture, workspaceWithDatabase, canBuildFixture, hasSqliteProgram, runDeclared, db };

@@ -4,7 +4,6 @@ const assert = require("node:assert/strict");
 const fs = require("node:fs");
 const path = require("node:path");
 const { KIT, manifest } = require("./helpers");
-const logic = require("../tabs/db/logic");
 const core = require("../tools/core");
 
 const read = (...parts) => fs.readFileSync(path.join(KIT, ...parts), "utf8");
@@ -19,12 +18,12 @@ function allFiles(dir = KIT, found = []) {
 }
 
 test("the manifest's own fields", () => {
-  assert.equal(manifest.schema, 1);
+  assert.equal(manifest.schema, 2);
   assert.equal(manifest.id, "db");
   assert.match(manifest.version, /^\d+\.\d+\.\d+$/);
   assert.ok(manifest.name.trim() && manifest.description.trim());
   assert.equal(manifest.homepage, "https://github.com/hangar-ai/kit-db");
-  assert.equal(manifest.hangar, ">=1.9.0");
+  assert.equal(manifest.hangar, ">=2.0.0");
   assert.ok(fs.existsSync(path.join(KIT, manifest.icon)));
   assert.equal(manifest.setup, undefined);
 });
@@ -58,15 +57,13 @@ test("four declared commands, each node on the kit's own script with its verb fi
   assert.equal(JSON.stringify(manifest.commands).match(/\bsql\b|query|statement/gi), null, "no free SQL");
 });
 
-test("the patterns of the manifest are the ones the script and the tab apply", () => {
+test("the patterns of the manifest are the ones the script applies (the native tab's tests hold the tab to them)", () => {
   const commands = manifest.commands;
   assert.equal(commands.schema.args.path.pattern, commands.rows.args.path.pattern);
   assert.equal(commands.schema.args.table.pattern, commands.rows.args.table.pattern);
   assert.equal(commands.tables.args.path.pattern, commands.rows.args.path.pattern);
   assert.equal(`^${commands.rows.args.path.pattern}$`, core.PATH_PATTERN.source);
   assert.equal(`^${commands.rows.args.table.pattern}$`, core.TABLE_PATTERN.source);
-  assert.equal(`^${commands.rows.args.path.pattern}$`, logic.PATH_RE.source);
-  assert.equal(`^${commands.rows.args.table.pattern}$`, logic.TABLE_RE.source);
   assert.equal(manifest.tabs[0].params.path.pattern, commands.rows.args.path.pattern);
 });
 
@@ -83,45 +80,24 @@ test("the tab: « Base de données », and exactly the permissions it needs", ()
   assert.ok(tab.params.path.description.trim());
 });
 
-test("the native tab: a module beside the page, which stays what Hangar 1.x opens", () => {
+test("the tab is native: schema 2, a module as its entry, nothing else to open", () => {
   const [tab] = manifest.tabs;
-  // Schema 1 and the HTML entry stay: an older Hangar ignores `native` and opens the page, the native
-  // Hangar opens the module (docs/native/kits-native.md, "Both, for a kit that must still open on 1.x").
-  assert.equal(manifest.schema, 1);
-  assert.equal(tab.entry, "tabs/db/index.html");
-  assert.equal(tab.native, "tabs/db.wasm");
-  assert.match(tab.native, /^[a-z0-9-]+(\/[a-z0-9.-]+)*\.wasm$/, "relative, not hidden, no way out");
-  const file = path.join(KIT, tab.native);
+  // A native tab is an `entry` ending in .wasm under schema 2 (docs/native/kits-native.md); there is
+  // no page and no `native` field, and the kit asks for the Hangar that runs modules.
+  assert.equal(manifest.schema, 2);
+  assert.equal(tab.entry, "tabs/db.wasm");
+  assert.equal(tab.native, undefined);
+  assert.match(tab.entry, /^[a-z0-9-]+(\/[a-z0-9.-]+)*\.wasm$/, "relative, not hidden, no way out");
+  const file = path.join(KIT, tab.entry);
   assert.ok(fs.existsSync(file), "the module is committed: scripts/build-native.sh");
   assert.ok(fs.realpathSync(file).startsWith(fs.realpathSync(KIT) + path.sep), "inside the kit");
   assert.ok(fs.statSync(file).size <= 64 * 1024 * 1024);
   assert.deepEqual([...fs.readFileSync(file).subarray(0, 8)], [0, 0x61, 0x73, 0x6d, 1, 0, 0, 0], "a WebAssembly module");
+  assert.equal(fs.existsSync(path.join(KIT, "tabs", "db")), false, "no HTML page is left");
   const script = read("scripts", "build-native.sh");
   assert.match(script, /wasm32-unknown-unknown/);
   assert.match(script, /tabs\/db\.wasm/);
   assert.match(read(".gitignore"), /^native\/target\/$/m);
-});
-
-test("the page loads Hangar UI and its own files, and nothing from elsewhere", () => {
-  const html = read("tabs", "db", "index.html");
-  assert.match(html, /href="\/_hangar\/kit\.css"/);
-  assert.match(html, /src="\/_hangar\/kit\.js"/);
-  assert.match(html, /src="\/_hangar\/kit-ui\.js"/);
-  for (const src of html.match(/(?:src|href)="[^"]+"/g)) assert.match(src, /="(\/_hangar\/|[a-z-]+\.(js|css)")/, src);
-  assert.doesNotMatch(html, /https?:\/\//);
-  assert.doesNotMatch(html, /<style/);
-});
-
-test("no colour of its own, no markup built from data, no network of its own", () => {
-  for (const name of ["logic.js", "controller.js", "view.js", "app.js", "index.html", "style.css"]) {
-    const source = read("tabs", "db", name);
-    assert.doesNotMatch(source, /#[0-9a-fA-F]{3,8}\b|rgba?\(|hsla?\(/, name);
-    assert.doesNotMatch(source, /innerHTML|insertAdjacentHTML|document\.write|eval\(/, name);
-    assert.doesNotMatch(source, /fetch\(|XMLHttpRequest|WebSocket/, `${name} has no network of its own`);
-  }
-  const css = read("tabs", "db", "style.css");
-  for (const [, value] of css.matchAll(/:\s*([^;{}]*var\(--[^;]*);/g)) assert.match(value, /--kit-/, value);
-  assert.doesNotMatch(css, /var\(--(?!kit-)/);
 });
 
 test("the script cannot write: no write API, no SQL from outside, no shell", () => {
@@ -133,23 +109,6 @@ test("the script cannot write: no write API, no SQL from outside, no shell", () 
   }
   assert.match(read("tools", "sqlite.js"), /readOnly: true/);
   assert.match(read("tools", "sqlite.js"), /"-readonly"/);
-});
-
-test("English and French hold the same keys, and French has its accents and its glossary", () => {
-  const { en, fr } = logic.STRINGS;
-  const keys = (table) => new Set(Object.keys(table).map((key) => key.replace(/_(one|other)$/, "")));
-  assert.deepEqual([...keys(fr)].sort(), [...keys(en)].sort());
-  assert.equal(fr.tab, "Base de données");
-  for (const key of Object.keys(en)) {
-    const placeholders = (table) => (table[key].match(/\{\w+\}/g) || []).sort().join();
-    assert.equal(placeholders(fr), placeholders(en), key);
-  }
-  assert.match(fr.deniedText, /Réglages › Kits/);
-  assert.match(en.deniedText, /Settings › Kits/);
-  assert.equal(fr.handOver, "Confier à un agent");
-  assert.match(fr.secretNote, /« Confier à un agent »/);
-  assert.match(fr.noDbText, /espace de travail/);
-  assert.doesNotMatch(Object.values(fr).join(" "), /\b(Reglages|echec|Base de donnees|a un agent|donnees|verrouille)\b/);
 });
 
 test("nothing personal anywhere in the kit", () => {

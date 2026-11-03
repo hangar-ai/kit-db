@@ -1,6 +1,6 @@
 #!/bin/sh
 # Builds the Database tab (native/) to WebAssembly and puts the module where hangar-kit.json's
-# "native" says: tabs/db.wasm.
+# tab "entry" says: tabs/db.wasm.
 #
 #   scripts/build-native.sh           build it, and write tabs/db.wasm
 #   scripts/build-native.sh --check   build it, and fail if tabs/db.wasm is not what the source builds

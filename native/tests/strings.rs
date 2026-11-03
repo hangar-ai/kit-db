@@ -1,4 +1,4 @@
-//! The words, `test/manifest.test.js`'s "English and French hold the same keys": every string in
+//! The words, English and French holding the same keys: every string in
 //! both languages, with the same placeholders, accents and glossary, and none the code asks for
 //! that is not there.
 

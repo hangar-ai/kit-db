@@ -1,5 +1,5 @@
 {
-  "schema": 1,
+  "schema": 2,
   "id": "db",
   "name": "Database",
   "version": "0.1.1",
@@ -7,7 +7,7 @@
   "author": "Hangar",
   "homepage": "https://github.com/hangar-ai/kit-db",
   "icon": "icon.svg",
-  "hangar": ">=1.9.0",
+  "hangar": ">=2.0.0",
   "gallery": {
     "permissionsSummary": "Runs four declared commands, a Node script that opens a SQLite file of the workspace read-only (no SQL of your own) to list databases, tables, a structure and rows; keeps your last choice in the kit's data folder; sends a table and your question, never its rows, to an agent only when you click.",
     "tags": ["database", "sqlite", "tab"]
@@ -54,8 +54,7 @@
     {
       "id": "db",
       "title": "Database",
-      "entry": "tabs/db/index.html",
-      "native": "tabs/db.wasm",
+      "entry": "tabs/db.wasm",
       "icon": "icon.svg",
       "singleton": true,
       "params": {

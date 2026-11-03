@@ -1,5 +1,5 @@
-//! `test/manifest.test.js` for the native field: the module the manifest names is there, inside the
-//! kit, a module Hangar will load, and the manifest is otherwise what it was.
+//! `test/manifest.test.js` for the native tab: the module the manifest names as the tab's entry is
+//! there, inside the kit, a module Hangar will load, and the manifest is otherwise what it was.
 
 use std::path::{Path, PathBuf};
 
@@ -25,28 +25,31 @@ fn tab() -> Value {
 }
 
 fn module() -> Vec<u8> {
-    std::fs::read(kit().join(tab()["native"].as_str().unwrap())).expect("the module is committed")
+    std::fs::read(kit().join(tab()["entry"].as_str().unwrap())).expect("the module is committed")
 }
 
 #[test]
-fn the_page_stays_and_the_module_is_added() {
+fn the_tab_is_native_under_schema_2() {
     let manifest = manifest();
     assert_eq!(
-        manifest["schema"], 1,
-        "schema 1: Hangar 1.x opens the page and ignores the field"
+        manifest["schema"], 2,
+        "a tab whose entry is a module needs schema 2"
     );
-    assert_eq!(manifest["hangar"], ">=1.9.0");
+    assert_eq!(manifest["hangar"], ">=2.0.0");
     let tab = tab();
     assert_eq!(tab["id"], "db");
-    assert_eq!(tab["entry"], "tabs/db/index.html");
-    assert_eq!(tab["native"], "tabs/db.wasm");
-    assert!(kit().join("tabs/db/index.html").is_file());
+    assert_eq!(tab["entry"], "tabs/db.wasm");
+    assert!(tab.get("native").is_none(), "the entry is the module itself");
+    assert!(
+        !kit().join("tabs/db").exists(),
+        "no HTML page is left beside the module"
+    );
     assert_eq!(tab["singleton"], true);
 }
 
 #[test]
-fn the_native_field_names_a_wasm_file_inside_the_kit() {
-    let native = tab()["native"].as_str().unwrap().to_owned();
+fn the_entry_names_a_wasm_file_inside_the_kit() {
+    let native = tab()["entry"].as_str().unwrap().to_owned();
     assert!(native.ends_with(".wasm"));
     assert!(
         !native.starts_with('/') && !native.contains('\\') && !native.contains(':'),
@@ -85,7 +88,7 @@ fn the_native_field_names_a_wasm_file_inside_the_kit() {
 }
 
 #[test]
-fn the_permissions_are_the_pages_exactly() {
+fn the_permissions_are_the_tabs_exactly() {
     let mut declared: Vec<String> = tab()["permissions"]
         .as_array()
         .unwrap()
@@ -122,7 +125,7 @@ fn the_build_script_puts_the_module_where_the_manifest_says() {
     );
     assert!(!script.contains("wasip1"));
     assert!(script.contains("kit_db_tab.wasm"));
-    assert!(script.contains(tab()["native"].as_str().unwrap()));
+    assert!(script.contains(tab()["entry"].as_str().unwrap()));
     let ignored = std::fs::read_to_string(kit().join(".gitignore")).unwrap();
     assert!(ignored.lines().any(|line| line.trim() == "native/target/"));
 }

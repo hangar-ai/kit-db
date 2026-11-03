@@ -40,8 +40,8 @@ fn the_patterns_are_the_manifests() {
 
 #[test]
 fn the_patterns_are_the_ones_the_manifest_declares() {
-    // The same text as logic.js's PATH_RE and TABLE_RE, which test/manifest.test.js holds to the
-    // manifest: a change of one here without the manifest shows in the next test.
+    // The patterns the tab applies are held to the manifest's: a change of one without the other
+    // shows here.
     let manifest: serde_json::Value =
         serde_json::from_str(include_str!("../../hangar-kit.json")).unwrap();
     let rows = &manifest["commands"]["rows"]["args"];
