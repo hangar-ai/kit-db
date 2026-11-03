@@ -11,7 +11,7 @@ permissions:
 
 jobs:
   kit-check:
-    uses: hangar-ai/.github/.github/workflows/kit-check.yml@v1
+    uses: hangar-ai/.github/.github/workflows/kit-check.yml@rust-rewrite
 
   # The Rust tab. Hangar runs the .wasm the kit commits and never builds one, so a module that is not
   # what the source builds is a tab that is not what was written: this job fails on it.
