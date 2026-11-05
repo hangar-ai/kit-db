@@ -34,10 +34,21 @@ function nodeAtLeast(major, minor) {
 function nodeDriver() {
   if (!nodeAtLeast(22, 12)) return null;
   let sqlite;
+  // Some Node releases still flag node:sqlite as experimental and print a warning on stderr the
+  // first time it loads. The script's answer is its stdout; stderr stays for real errors, so that
+  // one warning is left out, and nothing else.
+  const emitWarning = process.emitWarning;
+  process.emitWarning = function (warning, ...rest) {
+    const type = typeof rest[0] === "string" ? rest[0] : rest[0] && rest[0].type;
+    if (type === "ExperimentalWarning" && /sqlite/i.test(String(warning))) return;
+    return emitWarning.call(process, warning, ...rest);
+  };
   try {
     sqlite = require("node:sqlite");
   } catch {
     return null;
+  } finally {
+    process.emitWarning = emitWarning;
   }
   if (!sqlite || typeof sqlite.DatabaseSync !== "function") return null;
   return {
